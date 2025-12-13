@@ -77,10 +77,7 @@ jobs:
               az ml compute create \
                 --name $COMPUTE_NAME \
                 --type ComputeInstance \
-                --size $COMPUTE_SIZE \
-                --min-instances 1 \
-                --max-instances 1 \
-                --idle-time-before-scale-down 120
+                --size $COMPUTE_SIZE
             fi
 
       # START COMPUTE
