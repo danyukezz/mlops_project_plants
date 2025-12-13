@@ -3,7 +3,7 @@ type: command
 
 name: train_plant_disease
 display_name: Train Plant Disease Classifier
-version: 0.1.0
+version: 0.1.1
 description: Trains a CNN model for plant disease classification using PyTorch
 
 inputs:
