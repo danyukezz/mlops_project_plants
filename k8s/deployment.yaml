@@ -18,7 +18,7 @@ spec:
       - name: ghcr-secret
       containers:
       - name: plant-disease-api
-        image: ghcr.io/danyukezz/plant-disease-api:latest
+        image: ${CONTAINER_IMAGE}
         ports:
         - containerPort: 8000
         env:

@@ -23,7 +23,9 @@ outputs:
     mode: upload
 
 settings:
-  default_compute: azureml:compute-danylo
+  # Compute name will be set dynamically from GitHub workflow
+  # via: --set settings.default_compute=azureml:$COMPUTE_NAME
+  default_compute: azureml:compute-cluster
 
 jobs:
   data_prep:

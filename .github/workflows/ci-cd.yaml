@@ -23,12 +23,13 @@ on:
           - 'true'
 
 env:
-  GROUP: rg-nathan-mpops
-  WORKSPACE: danylo-bordunov-mlops-project
-  LOCATION: germanywestcentral
-  COMPUTE_NAME: compute-danylo
-  COMPUTE_SIZE: Standard_DS2_v2
-  MODEL_NAME: plant-disease-classifier-model
+  # Azure Configuration - Set these in GitHub Repository Variables
+  GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  WORKSPACE: ${{ vars.AZURE_WORKSPACE_NAME }}
+  LOCATION: ${{ vars.AZURE_LOCATION }}
+  COMPUTE_NAME: ${{ vars.AZURE_COMPUTE_NAME }}
+  COMPUTE_SIZE: ${{ vars.AZURE_COMPUTE_SIZE || 'Standard_DS2_v2' }}
+  MODEL_NAME: ${{ vars.MODEL_NAME || 'plant-disease-classifier-model' }}
 
 jobs:
   azure-pipeline:
@@ -152,8 +153,9 @@ jobs:
           inlineScript: |
             az extension add --name ml -y
             az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
-            # Run the pipeline with version tagging
+            # Run the pipeline with dynamic compute name and version tagging
             az ml job create --file ./pipelines/plant-disease-classification.yaml --stream \
+              --set settings.default_compute=azureml:$COMPUTE_NAME \
               --set name=plant-disease-${{ github.sha }}-${{ github.run_id }} \
               --set tags.github_sha=${{ github.sha }} \
               --set tags.github_ref=${{ github.ref }}
@@ -285,13 +287,17 @@ jobs:
       
       # KUBERNETES - Deploy Application
       - name: Kubernetes -- Deploy to Cluster
+        env:
+          CONTAINER_IMAGE: ghcr.io/${{ github.repository_owner }}/plant-disease-api:latest
         run: |
           echo "🚀 Deploying Plant Disease API"
           echo "📦 GitHub SHA: ${{ github.sha }}"
           echo "📋 GitHub Ref: ${{ github.ref }}"
           echo "🔗 Run ID: ${{ github.run_id }}"
+          echo "🐳 Container Image: $CONTAINER_IMAGE"
           
-          kubectl apply -f k8s/deployment.yaml
+          # Substitute environment variables in k8s files
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
           kubectl apply -f k8s/service.yaml
           
           kubectl rollout status deployment/plant-disease-api --timeout=5m
