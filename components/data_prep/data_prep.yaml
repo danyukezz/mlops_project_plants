@@ -20,7 +20,7 @@ outputs:
     type: uri_folder
     description: Processed and resized images
 
-code: ./components/data_prep
+code: .
 
 environment: azureml:plant-disease-env@latest
 

@@ -184,27 +184,24 @@ jobs:
             az extension add --name ml -y
             az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
             
-            # Register components with full paths
-            # Each component YAML must reference its code directory correctly
-            
             echo "Registering components..."
             
-            # Data Prep Component
+            # Data Prep Component - run from component directory
             if [ -f "./components/data_prep/data_prep.yaml" ]; then
               echo "Creating data_prep component..."
-              az ml component create --file ./components/data_prep/data_prep.yaml || echo "⚠️ Failed to create data_prep, might already exist"
+              (cd ./components/data_prep && az ml component create --file data_prep.yaml) || echo "⚠️ Failed to create data_prep"
             fi
             
-            # Data Split Component
+            # Data Split Component - run from component directory
             if [ -f "./components/data_split/data_split.yaml" ]; then
               echo "Creating data_split component..."
-              az ml component create --file ./components/data_split/data_split.yaml || echo "⚠️ Failed to create data_split, might already exist"
+              (cd ./components/data_split && az ml component create --file data_split.yaml) || echo "⚠️ Failed to create data_split"
             fi
             
-            # Training Component
+            # Training Component - run from component directory
             if [ -f "./components/training/training.yaml" ]; then
               echo "Creating training component..."
-              az ml component create --file ./components/training/training.yaml || echo "⚠️ Failed to create training, might already exist"
+              (cd ./components/training && az ml component create --file training.yaml) || echo "⚠️ Failed to create training"
             fi
             
             echo "Component registration complete."
