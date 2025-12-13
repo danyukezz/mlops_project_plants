@@ -34,7 +34,7 @@ jobs:
     inputs:
       raw_data: 
         type: uri_folder
-        path: azureml:plant-disease-dataset:1
+        path: azureml:plant-disease-recognition-dataset:1
       image_size: ${{parent.inputs.image_size}}
     outputs:
       processed_data: 
