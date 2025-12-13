@@ -27,7 +27,7 @@ outputs:
     type: uri_folder
     description: Testing dataset
 
-code: .
+code: ./components/data_split
 
 environment: azureml:plant-disease-env@latest
 

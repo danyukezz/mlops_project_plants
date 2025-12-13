@@ -85,6 +85,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Set Azure Subscription
+        run: |
+          # Extract subscription ID from AZURE_CREDENTIALS and set it explicitly
+          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
+          echo "Setting subscription to: $SUBSCRIPTION_ID"
+          az account set --subscription $SUBSCRIPTION_ID
+          az account show
+
       # CREATE WORKSPACE FIRST
       - name: Create Azure ML Workspace
         uses: Azure/CLI@v2.2.0
@@ -92,10 +100,17 @@ jobs:
           azcliversion: 2.79.0
           inlineScript: |
             az extension add --name ml -y
-            az ml workspace create \
-              -n $WORKSPACE \
-              -g $GROUP \
-              -l $LOCATION
+            
+            # Check if workspace already exists
+            if az ml workspace show -n $WORKSPACE -g $GROUP 2>/dev/null; then
+              echo "Workspace '$WORKSPACE' already exists. Skipping creation."
+            else
+              echo "Creating workspace '$WORKSPACE'..."
+              az ml workspace create \
+                -n $WORKSPACE \
+                -g $GROUP \
+                -l $LOCATION
+            fi
         continue-on-error: true
 
       # CREATE COMPUTE (only if doesn't exist)
@@ -169,29 +184,30 @@ jobs:
             az extension add --name ml -y
             az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
             
-            # Register components from their respective directories
-            # This is needed because component YAMLs use "code: ." (current directory)
+            # Register components with full paths
+            # Each component YAML must reference its code directory correctly
             
-            if [ -d "./components/data_prep" ] && [ -f "./components/data_prep/data_prep.yaml" ]; then
+            echo "Registering components..."
+            
+            # Data Prep Component
+            if [ -f "./components/data_prep/data_prep.yaml" ]; then
               echo "Creating data_prep component..."
-              cd ./components/data_prep
-              az ml component create --file data_prep.yaml || echo "Component might already exist, continuing..."
-              cd ../..
+              az ml component create --file ./components/data_prep/data_prep.yaml || echo "⚠️ Failed to create data_prep, might already exist"
             fi
             
-            if [ -d "./components/data_split" ] && [ -f "./components/data_split/data_split.yaml" ]; then
+            # Data Split Component
+            if [ -f "./components/data_split/data_split.yaml" ]; then
               echo "Creating data_split component..."
-              cd ./components/data_split
-              az ml component create --file data_split.yaml || echo "Component might already exist, continuing..."
-              cd ../..
+              az ml component create --file ./components/data_split/data_split.yaml || echo "⚠️ Failed to create data_split, might already exist"
             fi
             
-            if [ -d "./components/training" ] && [ -f "./components/training/training.yaml" ]; then
+            # Training Component
+            if [ -f "./components/training/training.yaml" ]; then
               echo "Creating training component..."
-              cd ./components/training
-              az ml component create --file training.yaml || echo "Component might already exist, continuing..."
-              cd ../..
+              az ml component create --file ./components/training/training.yaml || echo "⚠️ Failed to create training, might already exist"
             fi
+            
+            echo "Component registration complete."
 
       # RUN PIPELINE
       - name: Azure -- Pipeline Run

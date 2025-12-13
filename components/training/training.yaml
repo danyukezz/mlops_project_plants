@@ -43,7 +43,7 @@ outputs:
     type: uri_folder
     description: Trained model output
 
-code: .
+code: ./components/training
 
 environment: azureml:plant-disease-env@latest
 
