@@ -87,6 +87,18 @@ jobs:
 
       - name: Set Azure Subscription and Extensions
         run: |
+          # Strip whitespace from all variables (fix potential newline issues)
+          export GROUP=$(echo "$GROUP" | tr -d '\n\r' | xargs)
+          export WORKSPACE=$(echo "$WORKSPACE" | tr -d '\n\r' | xargs)
+          export LOCATION=$(echo "$LOCATION" | tr -d '\n\r' | xargs)
+          export COMPUTE_NAME=$(echo "$COMPUTE_NAME" | tr -d '\n\r' | xargs)
+          
+          echo "Cleaned variables:"
+          echo "  GROUP: '$GROUP'"
+          echo "  WORKSPACE: '$WORKSPACE'"
+          echo "  LOCATION: '$LOCATION'"
+          echo "  COMPUTE_NAME: '$COMPUTE_NAME'"
+          
           # Add ML extension first to avoid warnings
           az extension add --name ml -y 2>/dev/null || echo "ML extension already installed"
           
@@ -96,12 +108,12 @@ jobs:
           az account set --subscription $SUBSCRIPTION_ID
           az account show
           
-          # Set default workspace context
-          az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+          # Set default workspace context with cleaned variables
+          az configure --defaults group="$GROUP" workspace="$WORKSPACE" location="$LOCATION"
           
           # Verify workspace exists (don't create, just verify)
           echo "Verifying workspace '$WORKSPACE' exists in resource group '$GROUP'..."
-          az ml workspace show -n $WORKSPACE -g $GROUP || {
+          az ml workspace show -n "$WORKSPACE" -g "$GROUP" || {
             echo "❌ ERROR: Workspace '$WORKSPACE' not found!"
             echo "Please create the workspace first via Azure Portal or Azure CLI"
             exit 1
