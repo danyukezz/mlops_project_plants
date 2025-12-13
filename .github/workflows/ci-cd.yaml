@@ -169,17 +169,28 @@ jobs:
             az extension add --name ml -y
             az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
             
-            # Check if components folder exists
-            if [ -d "./components" ]; then
-              # Register components
-              find ./components -name "*.yaml" -type f 2>/dev/null | while read component_file; do
-                if [[ "$component_file" != *"conda.yaml"* ]] && [ -f "$component_file" ]; then
-                  echo "Creating component from: $component_file"
-                  az ml component create --file "$component_file" || echo "Component might already exist, continuing..."
-                fi
-              done
-            else
-              echo "No ./components folder found. Skipping component setup."
+            # Register components from their respective directories
+            # This is needed because component YAMLs use "code: ." (current directory)
+            
+            if [ -d "./components/data_prep" ] && [ -f "./components/data_prep/data_prep.yaml" ]; then
+              echo "Creating data_prep component..."
+              cd ./components/data_prep
+              az ml component create --file data_prep.yaml || echo "Component might already exist, continuing..."
+              cd ../..
+            fi
+            
+            if [ -d "./components/data_split" ] && [ -f "./components/data_split/data_split.yaml" ]; then
+              echo "Creating data_split component..."
+              cd ./components/data_split
+              az ml component create --file data_split.yaml || echo "Component might already exist, continuing..."
+              cd ../..
+            fi
+            
+            if [ -d "./components/training" ] && [ -f "./components/training/training.yaml" ]; then
+              echo "Creating training component..."
+              cd ./components/training
+              az ml component create --file training.yaml || echo "Component might already exist, continuing..."
+              cd ../..
             fi
 
       # RUN PIPELINE
