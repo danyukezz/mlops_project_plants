@@ -85,33 +85,28 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set Azure Subscription
+      - name: Set Azure Subscription and Extensions
         run: |
+          # Add ML extension first to avoid warnings
+          az extension add --name ml -y 2>/dev/null || echo "ML extension already installed"
+          
           # Extract subscription ID from AZURE_CREDENTIALS and set it explicitly
           SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
           echo "Setting subscription to: $SUBSCRIPTION_ID"
           az account set --subscription $SUBSCRIPTION_ID
           az account show
-
-      # CREATE WORKSPACE FIRST
-      - name: Create Azure ML Workspace
-        uses: Azure/CLI@v2.2.0
-        with:
-          azcliversion: 2.79.0
-          inlineScript: |
-            az extension add --name ml -y
-            
-            # Check if workspace already exists
-            if az ml workspace show -n $WORKSPACE -g $GROUP 2>/dev/null; then
-              echo "Workspace '$WORKSPACE' already exists. Skipping creation."
-            else
-              echo "Creating workspace '$WORKSPACE'..."
-              az ml workspace create \
-                -n $WORKSPACE \
-                -g $GROUP \
-                -l $LOCATION
-            fi
-        continue-on-error: true
+          
+          # Set default workspace context
+          az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+          
+          # Verify workspace exists (don't create, just verify)
+          echo "Verifying workspace '$WORKSPACE' exists in resource group '$GROUP'..."
+          az ml workspace show -n $WORKSPACE -g $GROUP || {
+            echo "❌ ERROR: Workspace '$WORKSPACE' not found!"
+            echo "Please create the workspace first via Azure Portal or Azure CLI"
+            exit 1
+          }
+          echo "✅ Workspace verified successfully"
 
       # CREATE COMPUTE (only if doesn't exist)
       - name: Azure -- Create compute
@@ -119,9 +114,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
-            
             # Check if compute exists
             if az ml compute show --name $COMPUTE_NAME 2>/dev/null; then
               echo "Compute '$COMPUTE_NAME' already exists. Skipping creation."
@@ -141,9 +133,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
-            
             # Get compute state
             STATE=$(az ml compute show --name $COMPUTE_NAME --query "state" -o tsv 2>/dev/null || echo "Unknown")
             
@@ -161,9 +150,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
-            
             # Check if environment folder exists
             if [ -d "./environment" ]; then
               # Register only environment.yaml, not conda.yaml
@@ -181,9 +167,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
-            
             echo "Registering components..."
             
             # Data Prep Component - run from component directory
@@ -212,8 +195,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
             # Run the pipeline with dynamic compute name and version tagging
             az ml job create --file ./pipelines/plant-disease-classification.yaml --stream \
               --set settings.default_compute=azureml:$COMPUTE_NAME \
@@ -227,8 +208,6 @@ jobs:
         with:
           azcliversion: 2.79.0
           inlineScript: |
-            az extension add --name ml -y
-            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
             az ml compute stop --name $COMPUTE_NAME
         continue-on-error: true
 
@@ -274,10 +253,8 @@ jobs:
 
   deploy:
     needs: download
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: ${{ inputs.skip_deployment != 'true' }}
-    env:
-      KUBECONFIG: /Users/danyukezz/.kube/config
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
