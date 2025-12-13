@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Data
+data/
+!data/.gitkeep
+*.csv
+*.h5
+*.pkl
+*.pth
+
+# Models
+models/*.pth
+models/*.h5
+models/*.pkl
+!models/.gitkeep
+
+# Azure
+.azure/
+*.azureml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment & Configuration (SENSITIVE!)
+.env
+.env.local
+config.yaml
+*.config.yaml
+secrets/
+credentials.json
+
+# Docker
+*.dockerfile
+.dockerignore
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Build
+dist/
+build/
+*.egg-info/

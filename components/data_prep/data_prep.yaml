@@ -1,0 +1,31 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+name: data_prep_plant_disease
+display_name: Data Preparation for Plant Disease
+version: 0.1.0
+description: Prepares and resizes plant disease images for training
+
+inputs:
+  raw_data:
+    type: uri_folder
+    description: Raw plant disease dataset
+  image_size:
+    type: integer
+    default: 224
+    description: Target image size
+
+outputs:
+  processed_data:
+    type: uri_folder
+    description: Processed and resized images
+
+code: .
+
+environment: azureml:plant-disease-env@latest
+
+command: >-
+  python data_prep.py
+  --raw_data ${{inputs.raw_data}}
+  --processed_data ${{outputs.processed_data}}
+  --image_size ${{inputs.image_size}}

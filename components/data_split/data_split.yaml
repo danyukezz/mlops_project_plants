@@ -1,0 +1,40 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+name: data_split_plant
+display_name: Train/Test Split for Plant Disease
+version: 0.1.0
+description: Splits plant disease dataset into training and testing sets
+
+inputs:
+  processed_data:
+    type: uri_folder
+    description: Processed plant disease images
+  train_test_split_factor:
+    type: integer
+    default: 20
+    description: Test set percentage
+  seed:
+    type: integer
+    default: 42
+    description: Random seed for reproducibility
+
+outputs:
+  training_data:
+    type: uri_folder
+    description: Training dataset
+  testing_data:
+    type: uri_folder
+    description: Testing dataset
+
+code: .
+
+environment: azureml:plant-disease-env@latest
+
+command: >-
+  python data_split.py
+  --processed_data ${{inputs.processed_data}}
+  --training_data ${{outputs.training_data}}
+  --testing_data ${{outputs.testing_data}}
+  --train_test_split_factor ${{inputs.train_test_split_factor}}
+  --seed ${{inputs.seed}}

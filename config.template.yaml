@@ -1,0 +1,29 @@
+# Azure Configuration Template
+# This is a safe template for git. Copy this to config.yaml and fill in your values.
+# config.yaml is gitignored and will not be committed.
+
+# Azure Configuration
+subscription_id: "your-subscription-id-here"
+resource_group: "your-resource-group-name"
+workspace_name: "your-workspace-name"
+location: "germanywestcentral"
+
+# Compute Configuration
+compute_name: "your-compute-name"
+compute_size: "STANDARD_NC6"
+min_instances: 0
+max_instances: 4
+
+# Model Configuration
+model_name: "plant-disease-classifier"
+model_version: "1"
+
+# Training Configuration
+batch_size: 32
+epochs: 50
+learning_rate: 0.001
+image_size: 224
+
+# API Configuration
+api_name: "plant-disease-api"
+api_port: 8000

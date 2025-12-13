@@ -1,0 +1,60 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+name: train_plant_disease
+display_name: Train Plant Disease Classifier
+version: 0.1.0
+description: Trains a CNN model for plant disease classification using PyTorch
+
+inputs:
+  training_folder:
+    type: uri_folder
+    description: Training dataset folder
+  testing_folder:
+    type: uri_folder
+    description: Testing dataset folder
+  epochs:
+    type: integer
+    default: 10
+    description: Number of training epochs
+  batch_size:
+    type: integer
+    default: 32
+    description: Batch size for training
+  learning_rate:
+    type: number
+    default: 0.001
+    description: Learning rate
+  image_size:
+    type: integer
+    default: 224
+    description: Input image size
+  seed:
+    type: integer
+    default: 42
+    description: Random seed
+  model_name:
+    type: string
+    default: plant-disease-classifier
+    description: Model name
+
+outputs:
+  output_model:
+    type: uri_folder
+    description: Trained model output
+
+code: .
+
+environment: azureml:plant-disease-env@latest
+
+command: >-
+  python train.py
+  --training_folder ${{inputs.training_folder}}
+  --testing_folder ${{inputs.testing_folder}}
+  --output_model ${{outputs.output_model}}
+  --epochs ${{inputs.epochs}}
+  --batch_size ${{inputs.batch_size}}
+  --learning_rate ${{inputs.learning_rate}}
+  --image_size ${{inputs.image_size}}
+  --seed ${{inputs.seed}}
+  --model_name ${{inputs.model_name}}

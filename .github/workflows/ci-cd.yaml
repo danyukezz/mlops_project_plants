@@ -1,0 +1,303 @@
+name: Azure ML Workflow - Plant Disease
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_training:
+        description: 'Skip Azure ML training (download model only)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      skip_deployment:
+        description: 'Skip Kubernetes deployment'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  GROUP: rg-nathan-mpops
+  WORKSPACE: danylo-bordunov-mlops-project
+  LOCATION: germanywestcentral
+  COMPUTE_NAME: compute-danylo
+  COMPUTE_SIZE: Standard_DS2_v2
+  MODEL_NAME: plant-disease-classifier-model
+
+jobs:
+  azure-pipeline:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.skip_training != 'true' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # CREATE WORKSPACE FIRST
+      - name: Create Azure ML Workspace
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az ml workspace create \
+              -n $WORKSPACE \
+              -g $GROUP \
+              -l $LOCATION
+        continue-on-error: true
+
+      # CREATE COMPUTE (only if doesn't exist)
+      - name: Azure -- Create compute
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            
+            # Check if compute exists
+            if az ml compute show --name $COMPUTE_NAME 2>/dev/null; then
+              echo "Compute '$COMPUTE_NAME' already exists. Skipping creation."
+            else
+              echo "Compute '$COMPUTE_NAME' not found. Creating..."
+              
+              # Create compute instance
+              az ml compute create \
+                --name $COMPUTE_NAME \
+                --type ComputeInstance \
+                --size $COMPUTE_SIZE \
+                --min-instances 1 \
+                --max-instances 1 \
+                --idle-time-before-scale-down 120
+            fi
+
+      # START COMPUTE
+      - name: Azure -- Check and Start Compute
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            
+            # Get compute state
+            STATE=$(az ml compute show --name $COMPUTE_NAME --query "state" -o tsv 2>/dev/null || echo "Unknown")
+            
+            # Only start if stopped
+            if [ "$STATE" = "Stopped" ]; then
+              echo "Starting compute..."
+              az ml compute start --name $COMPUTE_NAME
+            else
+              echo "Compute is already in state: $STATE. Skipping start."
+            fi
+
+      # ENVIRONMENT SETUP
+      - name: Azure -- Environment Setup
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            
+            # Check if environment folder exists
+            if [ -d "./environment" ]; then
+              # Register only environment.yaml, not conda.yaml
+              if [ -f "./environment/environment.yaml" ]; then
+                echo "Creating environment from: ./environment/environment.yaml"
+                az ml environment create --file "./environment/environment.yaml" || echo "Environment might already exist, continuing..."
+              fi
+            else
+              echo "No ./environment folder found. Skipping environment setup."
+            fi
+
+      # COMPONENT SETUP
+      - name: Azure -- Component Setup
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            
+            # Check if components folder exists
+            if [ -d "./components" ]; then
+              # Register components
+              find ./components -name "*.yaml" -type f 2>/dev/null | while read component_file; do
+                if [[ "$component_file" != *"conda.yaml"* ]] && [ -f "$component_file" ]; then
+                  echo "Creating component from: $component_file"
+                  az ml component create --file "$component_file" || echo "Component might already exist, continuing..."
+                fi
+              done
+            else
+              echo "No ./components folder found. Skipping component setup."
+            fi
+
+      # RUN PIPELINE
+      - name: Azure -- Pipeline Run
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            # Run the pipeline with version tagging
+            az ml job create --file ./pipelines/plant-disease-classification.yaml --stream \
+              --set name=plant-disease-${{ github.sha }}-${{ github.run_id }} \
+              --set tags.github_sha=${{ github.sha }} \
+              --set tags.github_ref=${{ github.ref }}
+
+      # CLEANUP - STOP COMPUTE
+      - name: Azure -- Stop Compute
+        uses: Azure/CLI@v2.2.0
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            az ml compute stop --name $COMPUTE_NAME
+        continue-on-error: true
+
+      - name: Azure Logout
+        run: |
+          az logout
+        if: always()
+
+  download: 
+    needs: azure-pipeline
+    runs-on: ubuntu-24.04
+    if: ${{ always() }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Azure -- Download Model
+        uses: Azure/CLI@v2.2.0 
+        with:
+          azcliversion: 2.79.0
+          inlineScript: |
+            az extension add --name ml -y
+            az configure --defaults group=$GROUP workspace=$WORKSPACE location=$LOCATION
+            VERSION=$(az ml model list -n $MODEL_NAME --query "[0].version" -o tsv)
+            az ml model download -n $MODEL_NAME -v $VERSION --download-path ./artifact-model
+      
+      - name: Upload Model Artifact
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: trained-model
+          path: artifact-model
+    
+      - name: Docker -- Upload API code from Inference
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: docker-config
+          path: inference
+
+  deploy:
+    needs: download
+    runs-on: self-hosted
+    if: ${{ inputs.skip_deployment != 'true' }}
+    env:
+      KUBECONFIG: /Users/danyukezz/.kube/config
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # DOCKER - Gather Tags
+      - name: Docker -- Gather Tags
+        id: docker-meta-data
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/plant-disease-api
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # DOCKER - Login to GHCR
+      - name: Docker -- Login to GHCR
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # DOCKER - Download API Code
+      - name: Docker -- Download API Code for Inference
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: docker-config
+          path: inference
+
+      # DOCKER - Download Model
+      - name: Docker -- Download Trained Model
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: trained-model
+          path: inference/model
+
+      # DOCKER - Build and Push
+      - name: Docker Build and push
+        id: docker_build
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: ./inference
+          push: true
+          tags: ${{ steps.docker-meta-data.outputs.tags }}
+
+      # KUBERNETES - Setup kubectl config
+      - name: Kubernetes -- Setup Config
+        run: |
+          echo "HOME: $HOME"
+          echo "USER: $USER"
+          ls -la ~/.kube/config || echo "Kubeconfig not found at ~/.kube/config"
+          kubectl cluster-info || echo "⚠️ Kubectl not configured"
+          kubectl version --client
+      
+      # KUBERNETES - Create/Update Image Pull Secret
+      - name: Kubernetes -- Update Image Pull Secret
+        run: |
+          kubectl delete secret ghcr-secret --ignore-not-found=true
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.repository_owner }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --docker-email=${{ github.actor }}@users.noreply.github.com
+          echo "✅ Image pull secret updated"
+      
+      # KUBERNETES - Deploy Application
+      - name: Kubernetes -- Deploy to Cluster
+        run: |
+          echo "🚀 Deploying Plant Disease API"
+          echo "📦 GitHub SHA: ${{ github.sha }}"
+          echo "📋 GitHub Ref: ${{ github.ref }}"
+          echo "🔗 Run ID: ${{ github.run_id }}"
+          
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          
+          kubectl rollout status deployment/plant-disease-api --timeout=5m
+          
+          kubectl get deployments
+          kubectl get services
+          kubectl get pods
+          
+          echo "✅ Deployment complete! Model version tagged with SHA: ${{ github.sha }}"

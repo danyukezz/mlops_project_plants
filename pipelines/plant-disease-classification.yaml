@@ -1,0 +1,77 @@
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+
+type: pipeline
+name: plant-disease-classification-cli
+display_name: Plant Disease Classification
+experiment_name: plant-disease-classification
+
+identity:
+  type: user_identity
+
+inputs:
+  train_test_split_factor: 20
+  epochs: 10
+  batch_size: 32
+  learning_rate: 0.001
+  image_size: 224
+  seed: 42
+
+outputs:
+  model: 
+    mode: upload
+  registration_details:
+    mode: upload
+
+settings:
+  default_compute: azureml:compute-danylo
+
+jobs:
+  data_prep:
+    type: command
+    component: azureml:data_prep_plant_disease@latest
+    inputs:
+      raw_data: 
+        type: uri_folder
+        path: azureml:plant-disease-dataset:1
+      image_size: ${{parent.inputs.image_size}}
+    outputs:
+      processed_data: 
+        mode: rw_mount
+
+  data_split:
+    type: command
+    component: azureml:data_split_plant@latest
+    inputs:
+      processed_data: ${{parent.jobs.data_prep.outputs.processed_data}}
+      train_test_split_factor: ${{parent.inputs.train_test_split_factor}}
+      seed: ${{parent.inputs.seed}}
+    outputs:
+      training_data:
+        mode: rw_mount
+      testing_data:
+        mode: rw_mount
+
+  training:
+    type: command
+    component: azureml:train_plant_disease@latest
+    inputs:
+      training_folder: ${{parent.jobs.data_split.outputs.training_data}}
+      testing_folder: ${{parent.jobs.data_split.outputs.testing_data}}
+      epochs: ${{parent.inputs.epochs}}
+      batch_size: ${{parent.inputs.batch_size}}
+      learning_rate: ${{parent.inputs.learning_rate}}
+      image_size: ${{parent.inputs.image_size}}
+      seed: ${{parent.inputs.seed}}
+      model_name: plant-disease-classifier
+    outputs:
+      output_model: ${{parent.outputs.model}}
+
+  register:
+    type: command
+    component: azureml://registries/azureml/components/register_model/versions/0.0.21
+    inputs:
+      model_name: plant-disease-classifier-model
+      model_type: custom_model
+      model_path: ${{parent.jobs.training.outputs.output_model}}
+    outputs:
+      registration_details_folder: ${{ parent.outputs.registration_details }}
