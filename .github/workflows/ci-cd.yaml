@@ -40,6 +40,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate Required Variables
+        run: |
+          echo "Checking required GitHub Variables..."
+          MISSING_VARS=""
+          
+          if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then
+            MISSING_VARS="$MISSING_VARS AZURE_RESOURCE_GROUP"
+          fi
+          if [ -z "${{ vars.AZURE_WORKSPACE_NAME }}" ]; then
+            MISSING_VARS="$MISSING_VARS AZURE_WORKSPACE_NAME"
+          fi
+          if [ -z "${{ vars.AZURE_LOCATION }}" ]; then
+            MISSING_VARS="$MISSING_VARS AZURE_LOCATION"
+          fi
+          if [ -z "${{ vars.AZURE_COMPUTE_NAME }}" ]; then
+            MISSING_VARS="$MISSING_VARS AZURE_COMPUTE_NAME"
+          fi
+          
+          if [ ! -z "$MISSING_VARS" ]; then
+            echo "❌ ERROR: Missing required GitHub Variables:$MISSING_VARS"
+            echo ""
+            echo "Please set these variables in your repository:"
+            echo "https://github.com/${{ github.repository }}/settings/variables/actions"
+            echo ""
+            echo "Required variables:"
+            echo "  - AZURE_RESOURCE_GROUP = rg-nathan-mpops"
+            echo "  - AZURE_WORKSPACE_NAME = danylo-bordunov-mlops-project"
+            echo "  - AZURE_LOCATION = germanywestcentral"
+            echo "  - AZURE_COMPUTE_NAME = danylo-compute"
+            exit 1
+          fi
+          
+          echo "✅ All required variables are set:"
+          echo "  GROUP: $GROUP"
+          echo "  WORKSPACE: $WORKSPACE"
+          echo "  LOCATION: $LOCATION"
+          echo "  COMPUTE_NAME: $COMPUTE_NAME"
+          echo "  COMPUTE_SIZE: $COMPUTE_SIZE"
+          echo "  MODEL_NAME: $MODEL_NAME"
+
       - name: Azure Login
         uses: Azure/login@v2
         with:
