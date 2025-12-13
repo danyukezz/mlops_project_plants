@@ -3,4 +3,4 @@ name: plant-disease-env
 version: 1
 description: Environment for plant disease classification with PyTorch
 image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
-conda_file: file:conda.yaml
+conda_file: conda.yaml
