@@ -10,7 +10,7 @@ identity:
 
 inputs:
   train_test_split_factor: 20
-  epochs: 10
+  epochs: 50
   batch_size: 32
   learning_rate: 0.001
   image_size: 224
