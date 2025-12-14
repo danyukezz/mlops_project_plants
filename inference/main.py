@@ -78,9 +78,9 @@ def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    # Find model file
+    # Find model file - search recursively
     model_dir = Path("./model")
-    model_files = list(model_dir.glob("*.pth"))
+    model_files = list(model_dir.rglob("*.pth"))
     
     if not model_files:
         print(f"Warning: No model file found in {model_dir}")
@@ -92,10 +92,10 @@ def load_model():
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location=device)
     
-    # Load class names
-    class_names_file = model_dir / "class_names.json"
-    if class_names_file.exists():
-        with open(class_names_file, 'r') as f:
+    # Load class names - search recursively
+    class_names_files = list(model_dir.rglob("class_names.json"))
+    if class_names_files:
+        with open(class_names_files[0], 'r') as f:
             class_names = json.load(f)
     else:
         class_names = checkpoint.get('class_names', [])
