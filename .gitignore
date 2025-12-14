@@ -69,3 +69,4 @@ dist/
 build/
 *.egg-info/
 /actions-runner/
+/test_api.sh

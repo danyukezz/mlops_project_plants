@@ -6,11 +6,11 @@
 subscription_id: "your-subscription-id-here"
 resource_group: "your-resource-group-name"
 workspace_name: "your-workspace-name"
-location: "germanywestcentral"
+location: "your-azure-region"
 
 # Compute Configuration
 compute_name: "your-compute-name"
-compute_size: "STANDARD_NC6"
+compute_size: "STANDARD_DS2_V2"
 min_instances: 0
 max_instances: 4
 
