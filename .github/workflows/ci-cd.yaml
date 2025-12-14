@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: true
 
       - name: Validate Required Variables
         run: |
@@ -236,6 +238,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          clean: true
       
       - name: Azure Login
         uses: Azure/login@v2
@@ -276,6 +280,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
 
       # DOCKER - Gather Tags
       - name: Docker -- Gather Tags
