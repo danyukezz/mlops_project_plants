@@ -68,3 +68,4 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+/actions-runner/
