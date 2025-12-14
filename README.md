@@ -50,8 +50,6 @@ Project/
 │   ├── deployment.yaml                   # Deployment
 │   └── service.yaml                      # Service
 │
-├── src/
-│   └── download_data.py                  # Dataset downloader
 │
 ├── config.yaml                            # ⚙️ Azure configuration
 └── requirements.txt                       # Local development
@@ -96,7 +94,6 @@ cp .env.example .env
 ### Step 1: Create GitHub Repository
 
 ```bash
-cd "/Users/danyukezz/Desktop/3 year 1 semester/MLOps/Project"
 git init
 git add .
 git commit -m "Initial commit"
