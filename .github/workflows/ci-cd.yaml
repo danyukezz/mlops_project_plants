@@ -267,6 +267,9 @@ jobs:
     needs: download
     runs-on: ubuntu-latest
     if: ${{ inputs.skip_deployment != 'true' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
