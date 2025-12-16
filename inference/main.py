@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 from typing import Optional
+import threading
 import torch
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -14,6 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch.nn as nn
 from torchvision import models, transforms
+
+# Thread lock for model inference
+model_lock = threading.Lock()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -171,16 +175,17 @@ async def predict(file: UploadFile = File(...), top_k: int = 5):
         
         image_tensor = transform(image).unsqueeze(0).to(device)
         
-        # Make prediction
-        with torch.no_grad():
-            outputs = model(image_tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            
-            # Get top k predictions
-            top_probs, top_indices = torch.topk(probabilities, min(top_k, len(class_names)))
-            
-            top_probs = top_probs[0].cpu().numpy()
-            top_indices = top_indices[0].cpu().numpy()
+        # Make prediction with thread lock to prevent segfaults
+        with model_lock:
+            with torch.no_grad():
+                outputs = model(image_tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                
+                # Get top k predictions
+                top_probs, top_indices = torch.topk(probabilities, min(top_k, len(class_names)))
+                
+                top_probs = top_probs[0].cpu().numpy()
+                top_indices = top_indices[0].cpu().numpy()
         
         # Get top prediction
         top_disease = class_names[top_indices[0]]
